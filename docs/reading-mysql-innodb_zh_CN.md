@@ -19,7 +19,7 @@
 - 为了保持数据完整性，`InnoDB` 支持外键约束。
 
 ### 使用 `InnoDB` 带来的好处
-// TODO
+// TODO 好处很多就先不翻译了
 
 ### `InnoDB` 最佳实践（Best Practice）
 本节描述使用 `InnoDB 表` 的最佳实践：
@@ -101,6 +101,15 @@
 - 使用 UPS 电源，保证断电后有机会持久化数据。
 - 用户的备份策略。
 - 分布式环境中，`MySQL` 数据中心的服务器硬件位置，与各个数据中心的网络连接。
+
+
+## InnoDB 多版本控制
+`InnoDB` 是一个多版本存储引擎 （[multi-versioned storage engine](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_mvcc)）：
+它存储被修改的行的旧版本，用来支持事务特性，例如并发和回滚。
+旧版本信息使用一种称为 `回滚段`（[rollback segment](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_rollback_segment)）
+的数据结构存储在 `表空间` 中。`InnoDB` 使用 `回滚段` 中的信息来实现事务回滚功能中的回退操作。
+`InnoDB` 还可以根据 `回滚段` 信息来构造旧版本的行信息，实现一致读（[consistent read](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_consistent_read)）。
+
 
 ## 术语表
 
