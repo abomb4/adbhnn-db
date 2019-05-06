@@ -1,0 +1,5 @@
+[book]
+authors = ["abomb4"]
+multilingual = false
+src = "src"
+title = "MySQL 8.0 文档中文翻译"
