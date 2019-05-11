@@ -35,10 +35,10 @@
 - 访问“旧列表”中的 `页` 会将该 `页` 标记为“年轻”，并将其放入整个 `缓冲池` 的头部（即“新列表”的头）。
   若一个 `页` 被用户读取，那么 `first access` 会立刻生效， `页` 会被标记为“年轻”；
   若一个 `页` 被 `预读取` 操作所读取，那么 `first access` 不会立刻生效（可能一直到回收都没有生效）；
-- 随着数据库的运行，缓冲池中未被访问的 `页` 会通过移向列表末尾而“老化”。
+- 随着数据库的运行，缓冲池中所有未被访问的 `页` 会通过移向列表末尾而“老化”。
   新旧子列表中的 `页` 都会随着其他 `页` 的更新而“老化”。
-  旧列表中的页面还会在其他页面插入到 `缓冲池` 中点时发生老化。
-  最终，未使用的页面会到达旧列表的底部，然后被过期掉。
+  旧列表中的 `页` 还会在其他 `页` 插入到 `缓冲池` 中点时发生老化。
+  最终，未使用的 `页` 会到达旧列表的底部，然后被过期掉。
 
 默认情况下，被一些查询读取的 `页` 会立刻移动到新列表，意味着该 `页` 会在 `缓冲池` 留存更长的时间。
 但当发生全表查询（例如 `mysqldump` 指令，与 `SELECT` 语句不加 `WHERE`）时，
@@ -50,14 +50,104 @@
 和
 [Section 15.8.3.4, “Configuring InnoDB Buffer Pool Prefetching (Read-Ahead)”](https://dev.mysql.com/doc/refman/8.0/en/innodb-performance-read_ahead.html)
 
-`InnoDB` 标准监控输出包含一系列有关 `缓冲池` `LRU` 算法的字段，在 `BUFFER POOL AND MEMORY` 节有说明。
+`InnoDB` 标准监控输出的 `BUFFER POOL AND MEMORY` 小节中，包含一系列与 `缓冲池` `LRU` 算法有关的字段。
 详情参阅
-[Monitoring the Buffer Pool Using the InnoDB Standard Monitor](https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html#innodb-buffer-pool-monitoring)
+[使用 InnoDB 标准监视器监控缓冲池](#使用-innodb-标准监视器监控缓冲池)
 
 #### 缓冲池的配置
-用户可以从一些方面对 `缓冲池` 进行配置，提高整体性能：
--
+用户可以从一些方面对 `缓冲池` 进行配置，以提高整体性能：
+- 理想情况下，用户会把缓冲池设置地尽可能大，为服务器上的其他进程留下足够的内存来运行，而无需过多的分页（？）。
+  `缓冲池` 越大， `InnoDB` 越像一个内存数据库，从磁盘读取一次数据后，之后的读取都从内存直接读取。
+  详情参阅 [Section 15.8.3.1, “Configuring InnoDB Buffer Pool Size”](https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool-resize.html)
 
+- 在拥有足够内存的 64 位系统上，可以将 `缓冲池` 拆分成多个部分，以减少并发情况下对内存结构的竞争。
+  详情参阅 [Section 15.8.3.2, “Configuring Multiple Buffer Pool Instances”](https://dev.mysql.com/doc/refman/8.0/en/innodb-multiple-buffer-pools.html)
+
+- 可以通过配置，避免突然读取大量数据的高峰操作把大量不常用数据放到 `缓冲池` 中，从而保持真正常用的数据在内存中。
+  详情参阅 [Section 15.8.3.3, “Making the Buffer Pool Scan Resistant”](https://dev.mysql.com/doc/refman/8.0/en/innodb-performance-midpoint_insertion.html)
+
+- 可以控制何时以及如何执行 `预读取` 请求，以便将预计不久将需要的页面异步预取到缓冲池中。
+  详情参阅 [Section 15.8.3.4, “Configuring InnoDB Buffer Pool Prefetching (Read-Ahead)”](https://dev.mysql.com/doc/refman/8.0/en/innodb-performance-read_ahead.html)
+
+- 可以控制后台刷新合适执行，以及是否根据工作负载动态调整刷新频率。
+  详情参阅 [Section 15.8.3.5, “Configuring InnoDB Buffer Pool Flushing”](https://dev.mysql.com/doc/refman/8.0/en/innodb-performance-adaptive_flushing.html)
+
+- 可以微调缓冲池刷新机制的各个方面，以提高性能，
+  详情参阅 [Section 15.8.3.6, “Fine-tuning InnoDB Buffer Pool Flushing”](https://dev.mysql.com/doc/refman/8.0/en/innodb-lru-background-flushing.html)
+
+- 可以配置 `InnoDB` 如何保存 `缓冲池` ，避免服务重启后的启动预热阶段时间过长。
+  详情参阅 [Section 15.8.3.7, “Saving and Restoring the Buffer Pool State”](https://dev.mysql.com/doc/refman/8.0/en/innodb-preload-buffer-pool.html)
+
+#### 使用 InnoDB 标准监视器监控缓冲池
+`InnoDB` 标准监视器的输出，提供了关于 `缓冲池` 操作的各项数据指标。
+可以通过 `SHOW ENGINE INNODB STATUS` 语句来获取标准监视器输出结果。
+`缓冲池` 相关的指标位于 `BUFFER POOL AND MEMORY` 一节，它的输出类似下面的形式：
+```SQL
+----------------------
+BUFFER POOL AND MEMORY
+----------------------
+Total large memory allocated 2198863872
+Dictionary memory allocated 776332
+Buffer pool size   131072
+Free buffers       124908
+Database pages     5720
+Old database pages 2071
+Modified db pages  910
+Pending reads 0
+Pending writes: LRU 0, flush list 0, single page 0
+Pages made young 4, not young 0
+0.10 youngs/s, 0.00 non-youngs/s
+Pages read 197, created 5523, written 5060
+0.00 reads/s, 190.89 creates/s, 244.94 writes/s
+Buffer pool hit rate 1000 / 1000, young-making rate 0 / 1000 not
+0 / 1000
+Pages read ahead 0.00/s, evicted without access 0.00/s, Random read
+ahead 0.00/s
+LRU len: 5720, unzip_LRU len: 0
+I/O sum[0]:cur[0], unzip sum[0]:cur[0]
+```
+
+下面的表格描述 `InnoDB` 标准输出中与 `缓冲池` 相关的指标的含义。
+
+> **注意：**
+>
+> `InnoDB` 标准监视器输出中提供的每秒平均值，基于自上次打印 `InnoDB` 标准监视器输出以来经过的时间。
+
+|指标名|描述|
+|---|---|
+|Total memory allocated|整个 `缓冲池` 在内存中分配的所有空间，以字节为单位|
+|Dictionary memory allocated|分配给 `InnoDB` 数据字典的总内存，以字节为单位|
+|Buffer pool size|分配给 `缓冲池` 所有 `页` 的总大小|
+|Free buffers|`缓冲池` 可用列表中的 `页` 的总大小|
+|Database pages|`缓冲池` `LRU` 机制的“新列表”中 `页` 的总大小|
+|Old database pages|`缓冲池` `LRU` 机制的“旧列表”中 `页` 的总大小|
+|Modified db pages|当前 `缓冲池` 中被修改的 `页` 的总数|
+|Pending reads|等待读入 `缓冲池` 的缓冲池 `页` 的数目（？）|
+|Pending writes LRU|`缓冲池` 中要从 `LRU` 新列表底部写入的旧脏页的数量。|
+|Pending writes flush list|在 `检查点期间`（？） 要刷新的 `缓冲池` `页` 的数量。|
+|Pending writes single page|`缓冲池` 中挂起的独立 `页` 写的数目（？）|
+|Pages made young|`缓冲池` LRU 列表中被标记为年轻的 `页` 的总数 （向“新列表”头部移动过的总数）|
+|Pages made not young|`缓冲池` LRU 列表中被标记为“不年轻”的 `页` 的总数 （没有被编辑为“年轻”而向“旧列表”移动过总数）|
+|youngs/s|`LRU` 列表中 `页` 被标记年轻的频率，取每秒平均值。表格下方有对此的更多说明|
+|non-youngs/s|`LRU` 列表中 `页` 被标记“不年轻”的频率，取每秒平均值。表格下方有对此的更多说明|
+|Pages read|`缓冲池` 中被读取的 `页` 总数.|
+|Pages created|在 `缓冲池` 中创建的 `页` 的总数|
+|Pages written|在 `缓冲池` 中小or是的 `页` 的总数（？）|
+|reads/s|The per second average number of buffer pool page reads per second.|
+|creates/s|The per second average number of buffer pool pages created per second.|
+|writes/s|The per second average number of buffer pool page writes per second.|
+|Buffer pool hit rate|The buffer pool page hit rate for pages read from the buffer pool memory vs from disk storage.|
+|young-making rate|The average hit rate at which page accesses have resulted in making pages young. See the notes that follow this table for more information.|
+|not (young-making rate)|The average hit rate at which page accesses have not resulted in making pages young. See the notes that follow this table for more information.|
+|Pages read ahead|The per second average of read ahead operations.|
+|Pages evicted without access|The per second average of the pages evicted without being accessed from the buffer pool.|
+|Random read ahead|The per second average of random read ahead operations.|
+|LRU len|The total size in pages of the buffer pool LRU list.|
+|unzip_LRU len|The total size in pages of the buffer pool unzip_LRU list.|
+|I/O sum|The total number of buffer pool LRU list pages accessed, for the last 50 seconds.|
+|I/O cur|The total number of buffer pool LRU list pages accessed.|
+|I/O unzip sum|The total number of buffer pool unzip_LRU list pages accessed.|
+|I/O unzip cur|The total number of buffer pool unzip_LRU list pages accessed.|
 
 ### 修改缓冲区 Change Buffer
 

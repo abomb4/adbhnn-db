@@ -1,5 +1,6 @@
 # InnoDB
 
+- [翻译说明](./translation-summary.md)
 - [InnoDB 存储引擎](./the-innodb-storage-engine/SUMMARY.md)
     - [InnoDB 简介](./the-innodb-storage-engine/introduction-to-innodb.md)
     - [InnoDB 与 ACID 模型](./the-innodb-storage-engine/innodb-and-the-acid-model.md)
