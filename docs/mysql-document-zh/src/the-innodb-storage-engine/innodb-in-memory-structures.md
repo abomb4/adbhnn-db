@@ -133,21 +133,32 @@ I/O sum[0]:cur[0], unzip sum[0]:cur[0]
 |Pages read|`缓冲池` 中被读取的 `页` 总数.|
 |Pages created|在 `缓冲池` 中创建的 `页` 的总数|
 |Pages written|在 `缓冲池` 中小or是的 `页` 的总数（？）|
-|reads/s|The per second average number of buffer pool page reads per second.|
-|creates/s|The per second average number of buffer pool pages created per second.|
-|writes/s|The per second average number of buffer pool page writes per second.|
-|Buffer pool hit rate|The buffer pool page hit rate for pages read from the buffer pool memory vs from disk storage.|
-|young-making rate|The average hit rate at which page accesses have resulted in making pages young. See the notes that follow this table for more information.|
-|not (young-making rate)|The average hit rate at which page accesses have not resulted in making pages young. See the notes that follow this table for more information.|
-|Pages read ahead|The per second average of read ahead operations.|
-|Pages evicted without access|The per second average of the pages evicted without being accessed from the buffer pool.|
-|Random read ahead|The per second average of random read ahead operations.|
-|LRU len|The total size in pages of the buffer pool LRU list.|
-|unzip_LRU len|The total size in pages of the buffer pool unzip_LRU list.|
-|I/O sum|The total number of buffer pool LRU list pages accessed, for the last 50 seconds.|
-|I/O cur|The total number of buffer pool LRU list pages accessed.|
-|I/O unzip sum|The total number of buffer pool unzip_LRU list pages accessed.|
-|I/O unzip cur|The total number of buffer pool unzip_LRU list pages accessed.|
+|reads/s|平均每秒在 `缓冲池` 中读取的 `页` 的数量|
+|creates/s|平均每秒在 `缓冲池` 中创建的 `页` 的数量|
+|writes/s|平均每秒在 `缓冲池` 中写入的 `页` 的数量|
+|Buffer pool hit rate|直接从 `缓冲池` 命中的 `页` 与从磁盘直接读取的 `页` 的数目比例|
+|young-making rate|将某 `页` 记为“年轻”的读取的命中率。表格下方有详情说明|
+|not (young-making rate)|没有将某 `页` 记为“年轻”的读取的命中率。表格下方有详情说明|
+|Pages read ahead|`预读取` 操作的每秒平均发生频率|
+|Pages evicted without access|从未在 `缓冲池` 中被读取的页的每秒平均过期频率|
+|Random read ahead|随机 `预读取` 曹锁的每秒发生频率|
+|LRU len|`LRU 列表` 中所有 `页` 的总大小|
+|unzip_LRU len|`缓冲池` 的 `unzip_LRU 列表` 的总大小|
+|I/O sum|最近 50 秒内 `LRU 列表` 被访问的次数|
+|I/O cur|`LRU 列表` 被访问的总次数|
+|I/O unzip sum|`unzip_LRU 列表` 被访问的总次数|
+|I/O unzip cur|`unzip_LRU 列表` 被访问的总次数|
+
+**说明**
+
+- `yongs/s` 指标只针对“旧列表”中的 `页`。这个指标与 `页` 被访问的数量有关，与总数量无关。
+  有可能一个 `页` 会被访问好几次，这几次都会被计数。
+  若在没有大量表扫描操作时，`yongs/s` 数值比较低，此时可能需要降低延迟时间（？）或提高 `缓冲池` 中“旧列表”的尺寸占比，
+  使"旧列表“头部的数据更慢地走向尾部，这些 `页` 则更可能被访问，并移动到”新列表“。
+- `non-yongs/s` 指标只针对“旧列表”中的 `页`。这个指标与 `页` 被访问的数量有关，与总数量无关。
+  一个 `页` 可能被访问多次，每次访问都会计数。
+  若在发生全表扫描时，本指标的数值不高（同时 `yongs/s` 指标很高），增大延迟时间。
+- `young-making` 
 
 ### 修改缓冲区 Change Buffer
 
